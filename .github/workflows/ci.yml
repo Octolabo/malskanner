@@ -1,0 +1,21 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-selfscan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: npm run build
+      - run: npm test
+      # Dogfood: malskanner scans its own repo. A hidden payload in our own
+      # docs should fail CI. Fixtures live outside the scanned path on purpose.
+      - run: npx tsx src/cli.ts README.md
