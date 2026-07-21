@@ -35,6 +35,10 @@ your agent calls first**.
 
 ## Demo
 
+<p align="center">
+  <img src="./demo/malskanner.gif" alt="malskanner scanning a poisoned repo and returning REFUSE" width="740">
+</p>
+
 A `README.md` that looks completely innocent to a human — and what `malskanner`
 sees when it reads the raw bytes:
 
@@ -58,8 +62,7 @@ $ malskanner ./some-repo
   8 finding(s) · exit code 2
 ```
 
-> ▶ A scripted GIF of the "innocent README → decoded payload" reveal lives at
-> [`demo/demo.tape`](./demo/demo.tape) — render it with [`vhs`](https://github.com/charmbracelet/vhs): `vhs demo/demo.tape`.
+> ▶ The GIF above is generated deterministically from [`demo/demo.tape`](./demo/demo.tape) with [`vhs`](https://github.com/charmbracelet/vhs).
 
 ## The gap it fills
 
