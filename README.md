@@ -9,6 +9,10 @@
 [![MCP](https://img.shields.io/badge/MCP-ready-8A2BE2.svg)](#use-it-as-an-mcp-server)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
 
+<p align="center">
+  <img src="./assets/hero.svg" alt="malskanner flagging a poisoned repository with REFUSE" width="740">
+</p>
+
 When you point Claude Code, Cursor, or any coding agent at a repository, the agent
 ingests **everything** in it — README, docs, comments. A malicious repo can hide
 instructions in those files that hijack your agent the moment it reads them: read
