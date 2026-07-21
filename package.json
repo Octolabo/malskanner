@@ -1,6 +1,6 @@
 {
   "name": "malskanner",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Scan a repo for hidden prompt-injection payloads before your AI agent trusts it.",
   "type": "module",
   "bin": {

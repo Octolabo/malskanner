@@ -77,10 +77,11 @@ agent* as a gate before it trusts an unfamiliar repo — is the gap `malskanner`
 No install — just run it (Node ≥ 20):
 
 ```bash
-npx malskanner /path/to/repo          # human report
-npx malskanner /path/to/repo --json   # machine-readable
-npx malskanner /path/to/repo --sarif  # for GitHub code scanning
-npx malskanner /path/to/repo --ai     # + optional sandboxed AI second opinion (needs ANTHROPIC_API_KEY)
+npx malskanner https://github.com/owner/repo   # scan a remote repo (shallow-cloned to a temp dir)
+npx malskanner /path/to/repo                   # or a local path
+npx malskanner /path/to/repo --json            # machine-readable
+npx malskanner /path/to/repo --sarif           # for GitHub code scanning
+npx malskanner /path/to/repo --ai              # + optional sandboxed AI second opinion (needs ANTHROPIC_API_KEY)
 ```
 
 Or install it globally — `npm install -g malskanner` — then `malskanner /path/to/repo`.
