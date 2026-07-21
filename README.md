@@ -3,6 +3,7 @@
 **The safety gate your AI agent runs on a repo before it trusts a single line.**
 
 [![CI](https://github.com/octolabo/malskanner/actions/workflows/ci.yml/badge.svg)](https://github.com/octolabo/malskanner/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/malskanner.svg)](https://www.npmjs.com/package/malskanner)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![node](https://img.shields.io/badge/node-%E2%89%A520-brightgreen.svg)](./package.json)
 [![false positives](https://img.shields.io/badge/false%20positives-0%20%2F%203%2C463%20files-success.svg)](#precision-0-false-positives-across-3463-files)
@@ -73,26 +74,24 @@ agent* as a gate before it trusts an unfamiliar repo — is the gap `malskanner`
 
 ## Quick start
 
-From source (works today):
+No install — just run it (Node ≥ 20):
+
+```bash
+npx malskanner /path/to/repo          # human report
+npx malskanner /path/to/repo --json   # machine-readable
+npx malskanner /path/to/repo --sarif  # for GitHub code scanning
+npx malskanner /path/to/repo --ai     # + optional sandboxed AI second opinion (needs ANTHROPIC_API_KEY)
+```
+
+Or install it globally — `npm install -g malskanner` — then `malskanner /path/to/repo`.
+
+From source:
 
 ```bash
 git clone https://github.com/octolabo/malskanner
-cd malskanner
-npm install
-npm run scan -- /path/to/repo        # human report
-npm run scan -- /path/to/repo --json # machine-readable
-npm run scan -- /path/to/repo --sarif # for GitHub code scanning
-npm run scan -- /path/to/repo --ai   # + optional sandboxed AI second opinion (needs ANTHROPIC_API_KEY)
+cd malskanner && npm install
+npm run scan -- /path/to/repo
 ```
-
-Install globally:
-
-```bash
-npm install && npm run build && npm link
-malskanner /path/to/repo
-```
-
-> Publishing to npm (`npx malskanner <repo>`) is on the roadmap.
 
 Exit codes double as a gate: **`2` = REFUSE, `1` = WARN, `0` = OK**.
 
@@ -192,7 +191,7 @@ line above — drops it. (This repo dogfoods it in [`PLAN.md`](./PLAN.md).)
 
 ## Roadmap
 
-See [`PLAN.md`](./PLAN.md). Next up: npm publish (`npx malskanner <repo>`).
+See [`PLAN.md`](./PLAN.md). Now on npm — next up: a GitHub Action example workflow and more detectors (PRs welcome).
 
 ## Contributing
 
