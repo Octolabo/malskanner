@@ -13,9 +13,13 @@ const WEIGHT: Record<Severity, number> = {
 export async function scanRepo(root: string): Promise<ScanResult> {
   const files = await walk(root);
   const findings: Finding[] = [];
+
   for (const f of files) {
+    const lines = f.text.split("\n");
     for (const d of detectors) {
-      findings.push(...d.scan(f.rel, f.text));
+      for (const finding of d.scan(f.rel, f.text)) {
+        if (!isSuppressed(lines, finding.line)) findings.push(finding);
+      }
     }
   }
 
@@ -32,4 +36,15 @@ export async function scanRepo(root: string): Promise<ScanResult> {
       : "OK";
 
   return { root, filesScanned: files.length, findings, score, verdict };
+}
+
+/**
+ * Inline suppression, so docs that intentionally show attack examples stay
+ * clean: `malskanner-ignore` on the finding's own line, or
+ * `malskanner-ignore-next-line` on the line above, drops that finding.
+ */
+function isSuppressed(lines: string[], line: number): boolean {
+  const current = lines[line - 1] ?? "";
+  const previous = lines[line - 2] ?? "";
+  return /malskanner-ignore\b/.test(current) || /malskanner-ignore-next-line\b/.test(previous);
 }

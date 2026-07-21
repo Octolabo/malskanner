@@ -1,110 +1,51 @@
-import { Detector, Finding, Severity } from "../../types.js";
+import { Detector, Finding } from "../../types.js";
 
 /**
  * Tier-1 deterministic detector for invisible / obfuscating Unicode.
  *
- * These characters render as nothing (or misleadingly) to a human, but an AI
- * agent reads the raw bytes — so they are the primary vehicle for smuggling
- * instructions into an agent's context via an otherwise innocent-looking file.
- * No model is involved here, so this detector cannot itself be prompt-injected
- * and always returns the same verdict for the same input.
+ * No model is involved, so this cannot be prompt-injected and always returns the
+ * same verdict for the same input.
+ *
+ * Precision matters as much as recall: some invisible characters have entirely
+ * legitimate uses (emoji ZWJ sequences, Indic/Arabic joiners, CJK spacing,
+ * soft-hyphen hyphenation). So tag-smuggling and bidi overrides — which have no
+ * legitimate place in documentation — are always flagged, while zero-width
+ * characters are only flagged in high-signal contexts (a run of >=3, or a
+ * single char wedged between two ASCII letters as keyword-splitting evasion).
  */
 
-// Zero-width and other invisible/format characters that have no place in prose.
-const ZERO_WIDTH = new Set<number>([
-  0x200b, 0x200c, 0x200d, 0x2060, 0xfeff, // ZWSP, ZWNJ, ZWJ, WORD JOINER, BOM
-  0x00ad, 0x034f, 0x061c, 0x115f, 0x1160, // SOFT HYPHEN, CGJ, ALM, HANGUL FILLERS
-  0x17b4, 0x17b5, 0x180e, 0x2061, 0x2062, 0x2063, 0x2064,
-  0x3164, 0xffa0, // HANGUL FILLER, HALFWIDTH HANGUL FILLER
-]);
+// Unicode Tag block (U+E0000–E007F): invisible, decodes 1:1 to ASCII.
+const isTag = (cp: number) => cp >= 0xe0000 && cp <= 0xe007f;
 
-// Bidirectional overrides & isolates — the "Trojan Source" family. They let the
-// rendered order of text differ from the logical (parsed/agent-read) order.
+// Bidirectional overrides & isolates — the "Trojan Source" family.
 const BIDI = new Set<number>([
   0x202a, 0x202b, 0x202c, 0x202d, 0x202e, // LRE, RLE, PDF, LRO, RLO
   0x2066, 0x2067, 0x2068, 0x2069, // LRI, RLI, FSI, PDI
 ]);
 
-// Unicode Tag block (U+E0000–E007F): invisible, but each char maps 1:1 to ASCII.
-// This is the cleanest way to smuggle a fully readable instruction past a human.
-const isTag = (cp: number) => cp >= 0xe0000 && cp <= 0xe007f;
+// Zero-width / invisible format chars. SOFT HYPHEN (U+00AD) is deliberately
+// excluded — its purpose is between-letter hyphenation, a guaranteed FP source.
+const ZERO_WIDTH = new Set<number>([
+  0x200b, 0x200c, 0x200d, 0x2060, 0xfeff,
+  0x034f, 0x061c, 0x115f, 0x1160, 0x17b4, 0x17b5, 0x180e,
+  0x2061, 0x2062, 0x2063, 0x2064, 0x3164, 0xffa0,
+]);
 
-interface Suspect {
-  cls: "unicode-tag-smuggling" | "bidi-override" | "zero-width-char";
-  severity: Severity;
-  why: string;
-}
-
-function classify(cp: number): Suspect | null {
-  if (isTag(cp)) {
-    return {
-      cls: "unicode-tag-smuggling",
-      severity: "critical",
-      why: "Unicode Tag characters (U+E0000–E007F) are invisible but decode 1:1 to ASCII. They are used to smuggle instructions past a human reader straight into an AI agent's context.",
-    };
-  }
-  if (BIDI.has(cp)) {
-    return {
-      cls: "bidi-override",
-      severity: "critical",
-      why: 'Bidirectional override/isolate controls reorder how text renders versus how it is parsed ("Trojan Source"), hiding instructions or disguising malicious code as benign.',
-    };
-  }
-  if (ZERO_WIDTH.has(cp)) {
-    return {
-      cls: "zero-width-char",
-      severity: "high",
-      why: "Zero-width / invisible characters render as nothing but are still read by an AI agent. They hide instructions between visible words or encode data.",
-    };
-  }
-  return null;
-}
+const ZW_BULK_MIN = 3; // a run this long has no benign explanation
+const isAsciiWord = (cp: number | undefined) =>
+  cp !== undefined && ((cp >= 48 && cp <= 57) || (cp >= 65 && cp <= 90) || (cp >= 97 && cp <= 122));
 
 export const unicodeDetector: Detector = {
   id: "unicode",
   scan(file, text) {
     const findings: Finding[] = [];
+
+    // Code points with positions, so we can inspect a run's neighbours.
+    const cps: { cp: number; line: number; col: number }[] = [];
     let line = 1;
     let col = 1;
-
-    // A "run" groups consecutive suspicious chars of the same class into one
-    // finding, so a smuggled instruction shows up as a single decoded payload
-    // rather than N separate noise lines.
-    let run: { s: Suspect; line: number; col: number; cps: number[] } | null = null;
-
-    const flush = () => {
-      if (!run) return;
-      const { s, cps } = run;
-      const decoded = s.cls === "unicode-tag-smuggling" ? decodeTags(cps) : null;
-      findings.push({
-        ruleId: s.cls,
-        severity: s.severity,
-        title: titleFor(s.cls, cps.length),
-        file,
-        line: run.line,
-        column: run.col,
-        evidence: decoded
-          ? `decoded hidden text: ${JSON.stringify(decoded)}  (${cps.length} invisible chars)`
-          : `${cps.length}× ${describe(cps)} — renders as nothing`,
-        why: s.why,
-        remediation: "Remove the invisible/override characters, or reject the file. Legitimate documentation never needs them.",
-      });
-      run = null;
-    };
-
     for (const ch of text) {
-      const cp = ch.codePointAt(0)!;
-      const s = classify(cp);
-      if (s) {
-        if (run && run.s.cls === s.cls) {
-          run.cps.push(cp);
-        } else {
-          flush();
-          run = { s, line, col, cps: [cp] };
-        }
-      } else {
-        flush();
-      }
+      cps.push({ cp: ch.codePointAt(0)!, line, col });
       if (ch === "\n") {
         line++;
         col = 1;
@@ -112,7 +53,77 @@ export const unicodeDetector: Detector = {
         col++;
       }
     }
-    flush();
+
+    let i = 0;
+    while (i < cps.length) {
+      const { cp, line: L, col: C } = cps[i];
+
+      if (isTag(cp)) {
+        let j = i;
+        const run: number[] = [];
+        while (j < cps.length && isTag(cps[j].cp)) run.push(cps[j++].cp);
+        const decoded = decodeTags(run);
+        findings.push({
+          ruleId: "unicode-tag-smuggling",
+          severity: "critical",
+          title: "Invisible Unicode-tag smuggled instruction",
+          file,
+          line: L,
+          column: C,
+          evidence: `decoded hidden text: ${JSON.stringify(decoded)}  (${run.length} invisible chars)`,
+          why: "Unicode Tag characters (U+E0000–E007F) are invisible but decode 1:1 to ASCII. They smuggle instructions past a human reader straight into an AI agent's context.",
+          remediation: "Remove the invisible characters, or reject the file. Legitimate documentation never needs them.",
+        });
+        i = j;
+        continue;
+      }
+
+      if (BIDI.has(cp)) {
+        findings.push({
+          ruleId: "bidi-override",
+          severity: "critical",
+          title: "Bidirectional override (Trojan Source)",
+          file,
+          line: L,
+          column: C,
+          evidence: `${nameOf(cp)} — renders as nothing`,
+          why: 'Bidirectional override/isolate controls reorder how text renders versus how it is parsed ("Trojan Source"), hiding instructions or disguising malicious code as benign.',
+          remediation: "Remove the override characters, or reject the file. Legitimate documentation never needs them.",
+        });
+        i++;
+        continue;
+      }
+
+      if (ZERO_WIDTH.has(cp)) {
+        let j = i;
+        while (j < cps.length && ZERO_WIDTH.has(cps[j].cp)) j++;
+        const run = cps.slice(i, j).map((x) => x.cp);
+        const prev = i > 0 ? cps[i - 1].cp : undefined;
+        const next = j < cps.length ? cps[j].cp : undefined;
+        const bulky = run.length >= ZW_BULK_MIN;
+        const splitting = isAsciiWord(prev) && isAsciiWord(next);
+        if (bulky || splitting) {
+          findings.push({
+            ruleId: "zero-width-char",
+            severity: "high",
+            title: `Zero-width / invisible character${run.length > 1 ? "s" : ""}`,
+            file,
+            line: L,
+            column: C,
+            evidence: splitting && !bulky
+              ? `${run.length}× ${describe(run)} wedged between word characters — splits/hides a token`
+              : `${run.length}× ${describe(run)} in a row — renders as nothing`,
+            why: "Zero-width / invisible characters render as nothing but are still read by an AI agent — used to hide instructions or split keywords to evade filters.",
+            remediation: "Remove the invisible characters, or reject the file.",
+          });
+        }
+        i = j;
+        continue;
+      }
+
+      i++;
+    }
+
     return findings;
   },
 };
@@ -126,17 +137,6 @@ function decodeTags(cps: number[]): string {
     .join("");
 }
 
-function titleFor(cls: Suspect["cls"], n: number): string {
-  switch (cls) {
-    case "unicode-tag-smuggling":
-      return "Invisible Unicode-tag smuggled instruction";
-    case "bidi-override":
-      return "Bidirectional override (Trojan Source)";
-    case "zero-width-char":
-      return `Zero-width / invisible character${n > 1 ? "s" : ""}`;
-  }
-}
-
 function describe(cps: number[]): string {
   return [...new Set(cps.map(nameOf))].join(", ");
 }
@@ -144,7 +144,7 @@ function describe(cps: number[]): string {
 function nameOf(cp: number): string {
   const names: Record<number, string> = {
     0x200b: "ZERO WIDTH SPACE", 0x200c: "ZWNJ", 0x200d: "ZWJ", 0x2060: "WORD JOINER",
-    0xfeff: "ZW NO-BREAK SPACE / BOM", 0x00ad: "SOFT HYPHEN", 0x034f: "COMBINING GRAPHEME JOINER",
+    0xfeff: "ZW NO-BREAK SPACE / BOM", 0x034f: "COMBINING GRAPHEME JOINER",
     0x061c: "ARABIC LETTER MARK", 0x180e: "MONGOLIAN VOWEL SEPARATOR", 0x3164: "HANGUL FILLER",
     0x202a: "LRE", 0x202b: "RLE", 0x202c: "PDF", 0x202d: "LRO", 0x202e: "RLO",
     0x2066: "LRI", 0x2067: "RLI", 0x2068: "FSI", 0x2069: "PDI",

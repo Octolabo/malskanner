@@ -31,11 +31,32 @@ export const homoglyphDetector: Detector = {
     const findings: Finding[] = [];
     for (const m of text.matchAll(TOKEN)) {
       const tok = m[0];
-      const hasAscii = /[A-Za-z]/.test(tok);
-      const homos = [...tok].filter((c) => CONFUSABLE_SET.has(c));
-      if (!hasAscii || homos.length === 0) continue;
+      const chars = [...tok];
+      const asciiCount = chars.filter((c) => /[A-Za-z]/.test(c)).length;
+      const nonAscii = chars.filter((c) => !/[A-Za-z]/.test(c));
+      // Impersonation pattern only: the token is ASCII Latin plus lookalikes,
+      // with Latin the majority. A genuine foreign word (containing non-lookalike
+      // letters, or mostly non-Latin) is left alone — that kills the multilingual
+      // false positives.
+      const isImpersonation =
+        nonAscii.length > 0 &&
+        nonAscii.every((c) => CONFUSABLE_SET.has(c)) &&
+        asciiCount >= 1 &&
+        asciiCount >= nonAscii.length;
+      // Require an INTERIOR lookalike (ASCII letters on both sides): that is the
+      // typosquat pattern ("p‑а‑ypal"). A lookalike only at a word boundary is
+      // usually a real inflection (e.g. Russian "Pythonу"), not an attack.
+      const hasInteriorConfusable = chars.some(
+        (c, k) =>
+          k > 0 &&
+          k < chars.length - 1 &&
+          CONFUSABLE_SET.has(c) &&
+          /[A-Za-z]/.test(chars[k - 1]) &&
+          /[A-Za-z]/.test(chars[k + 1]),
+      );
+      if (!isImpersonation || !hasInteriorConfusable) continue;
 
-      const skeleton = [...tok].map((c) => CONFUSABLES[c] ?? c).join("");
+      const skeleton = chars.map((c) => CONFUSABLES[c] ?? c).join("");
       const { line, column } = posOf(text, m.index ?? 0);
       findings.push({
         ruleId: "homoglyph-token",

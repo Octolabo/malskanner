@@ -22,7 +22,7 @@ worm). Window is months, not years — ship fast.
   chars, tag-block smuggling (U+E0000–E007F), bidi overrides (Trojan Source),
   hidden HTML/markdown text, base64/hex blobs decoding to instructions.
 - **Tier 2 — Warning, heuristic + classifier:** agent-directed imperatives
-  ("ignore previous instructions", "run…"), exfil references (`~/.ssh`, `.env`,
+  ("ignore previous instructions", "run…"), exfil references (`~/.ssh`, `.env`, <!-- malskanner-ignore: documents an attack phrase -->
   `curl | sh`), tool-poisoning in MCP `description` fields.
 - **Tier 3 — Info:** risky install hooks (`postinstall`), obfuscation,
   suspicious hosts. Secrets → interop with gitleaks, not our job.
@@ -41,8 +41,10 @@ worm). Window is months, not years — ship fast.
       stub, poisoned + clean fixtures, self-scan CI.
 - [x] **P1 — Tier-1 complete:** hidden HTML/CSS text, base64/hex decode,
       homoglyph spans; SARIF + JSON output; 7 passing unit tests over fixtures.
-- [ ] **P2 — MCP polish + demo:** harden `scan_repo`, record the money GIF
-      (agent pwned → agent saved).
+- [x] **P2 — MCP polish + demo assets:** hardened `scan_repo` (path validation,
+      verdict + `safeToProceed` + agent guidance, bounded payload) with live
+      MCP client↔server smoke tests; `demo/demo.tape` + registration docs.
+      _Pending user:_ install `vhs` and record the GIF (`vhs demo/demo.tape`).
 - [ ] **P3 — Tier-2 + classifier:** imperative/exfil heuristics + isolated
       classifier; measure false-positive rate on the top ~100 real repos.
 - [ ] **P4 — launch:** README + demo GIF + verified CSA stat; submit to

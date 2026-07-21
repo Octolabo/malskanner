@@ -9,10 +9,12 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/cli.ts",
+    "scan": "tsx src/cli.ts",
     "mcp": "tsx src/mcp.ts",
     "fixtures": "node scripts/make-fixtures.mjs",
     "scan:demo": "tsx src/cli.ts test/fixtures/poisoned",
-    "test": "node scripts/make-fixtures.mjs && node --import tsx --test test/*.test.ts"
+    "test": "node scripts/make-fixtures.mjs && node --import tsx --test test/*.test.ts",
+    "prepublishOnly": "npm run build"
   },
   "engines": {
     "node": ">=20"
@@ -27,6 +29,19 @@
   ],
   "license": "MIT",
   "author": "octolabo",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/octolabo/malskanner.git"
+  },
+  "bugs": {
+    "url": "https://github.com/octolabo/malskanner/issues"
+  },
+  "homepage": "https://github.com/octolabo/malskanner#readme",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",
     "chalk": "^5.3.0",

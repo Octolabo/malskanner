@@ -1,0 +1,36 @@
+name: "malskanner"
+description: "Scan a repo for hidden prompt-injection payloads before your AI agent trusts it."
+author: "octolabo"
+branding:
+  icon: "shield"
+  color: "purple"
+inputs:
+  path:
+    description: "Path to scan (file or directory)."
+    required: false
+    default: "."
+  fail-on:
+    description: "Minimum verdict that fails the job: REFUSE or WARN."
+    required: false
+    default: "WARN"
+runs:
+  using: "composite"
+  steps:
+    - name: Build malskanner
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: npm install --no-audit --no-fund --silent && npm run build --silent
+    - name: Scan
+      shell: bash
+      run: |
+        set +e
+        node "$GITHUB_ACTION_PATH/dist/cli.js" "${{ inputs.path }}"
+        code=$?
+        set -e
+        echo "malskanner exit code: $code (2=REFUSE, 1=WARN, 0=OK)"
+        if [ "${{ inputs.fail-on }}" = "REFUSE" ]; then
+          [ "$code" -ge 2 ] && exit 1
+        else
+          [ "$code" -ge 1 ] && exit 1
+        fi
+        exit 0

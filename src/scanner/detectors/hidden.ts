@@ -29,7 +29,7 @@ export const hiddenDetector: Detector = {
       const { line, column } = posOf(text, m.index ?? 0);
       findings.push({
         ruleId: "hidden-html-comment",
-        severity: "high",
+        severity: "critical",
         title: "Hidden HTML comment with suspicious instruction",
         file,
         line,
