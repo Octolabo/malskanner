@@ -1,5 +1,6 @@
 import { walk } from "./walk.js";
 import { detectors } from "./detectors/index.js";
+import { classifyProse } from "./classify.js";
 import { Finding, ScanResult, Severity, Verdict } from "../types.js";
 
 const WEIGHT: Record<Severity, number> = {
@@ -10,17 +11,39 @@ const WEIGHT: Record<Severity, number> = {
   info: 0,
 };
 
-export async function scanRepo(root: string): Promise<ScanResult> {
+const PROSE = /\.(md|markdown|mdx|txt|rst|adoc)$/i;
+const PROSE_NAME = /(^|\/)(readme|contributing|security)/i;
+
+export interface ScanOptions {
+  /** Run the optional, opt-in AI classifier (needs ANTHROPIC_API_KEY). */
+  ai?: boolean;
+}
+
+export async function scanRepo(root: string, opts: ScanOptions = {}): Promise<ScanResult> {
   const files = await walk(root);
   const findings: Finding[] = [];
+  const notes: string[] = [];
 
+  const linesOf = new Map<string, string[]>();
   for (const f of files) {
     const lines = f.text.split("\n");
+    linesOf.set(f.rel, lines);
     for (const d of detectors) {
       for (const finding of d.scan(f.rel, f.text)) {
         if (!isSuppressed(lines, finding.line)) findings.push(finding);
       }
     }
+  }
+
+  // Optional AI second opinion (deterministic scan above is unaffected either way).
+  if (opts.ai) {
+    const prose = files.filter((f) => PROSE.test(f.rel) || PROSE_NAME.test(f.rel));
+    const result = await classifyProse(prose);
+    for (const finding of result.findings) {
+      const lines = linesOf.get(finding.file) ?? [];
+      if (!isSuppressed(lines, finding.line)) findings.push(finding);
+    }
+    if (result.note) notes.push(result.note);
   }
 
   findings.sort((a, b) => WEIGHT[b.severity] - WEIGHT[a.severity]);
@@ -35,7 +58,14 @@ export async function scanRepo(root: string): Promise<ScanResult> {
       ? "WARN"
       : "OK";
 
-  return { root, filesScanned: files.length, findings, score, verdict };
+  return {
+    root,
+    filesScanned: files.length,
+    findings,
+    score,
+    verdict,
+    notes: notes.length ? notes : undefined,
+  };
 }
 
 /**

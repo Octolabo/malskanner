@@ -21,6 +21,7 @@ export interface ScanResult {
   findings: Finding[];
   score: number; // 0-100 risk
   verdict: Verdict;
+  notes?: string[]; // non-fatal messages (e.g. AI classifier status)
 }
 
 /**

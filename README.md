@@ -82,6 +82,7 @@ npm install
 npm run scan -- /path/to/repo        # human report
 npm run scan -- /path/to/repo --json # machine-readable
 npm run scan -- /path/to/repo --sarif # for GitHub code scanning
+npm run scan -- /path/to/repo --ai   # + optional sandboxed AI second opinion (needs ANTHROPIC_API_KEY)
 ```
 
 Install globally:
@@ -114,9 +115,9 @@ All detection is **deterministic** — pure code, no model in the loop.
 
 Every detector is pure, deterministic code — **no LLM is in the loop** — so pointing
 `malskanner` at a hostile repo cannot prompt-inject the scanner itself, and the same
-input always produces the same verdict. (The optional AI second-opinion on the
-roadmap is sandboxed: it receives text as *data only* and is given no tools, so it
-can classify but never act.)
+input always produces the same verdict. The optional AI second opinion (`--ai`) is
+sandboxed the same way: it receives the text as *data only*, runs at temperature 0,
+and is given **no tools** — so it can classify, but never act.
 
 ## Use it as an MCP server
 
@@ -186,12 +187,12 @@ line above — drops it. (This repo dogfoods it in [`PLAN.md`](./PLAN.md).)
   scope for any static pass — pair `malskanner` with sandboxing and least-privilege.
 - It targets **prose/docs**, not full malware analysis of source or dependencies
   (use `semgrep`, `gitleaks`, `guarddog` alongside it).
-- Detection is high-precision by design; the optional AI classifier (roadmap) widens
-  recall for novel natural-language phrasing.
+- Detection is high-precision by design; the optional, sandboxed AI classifier
+  (`--ai`, needs `ANTHROPIC_API_KEY`) widens recall for novel natural-language phrasing.
 
 ## Roadmap
 
-See [`PLAN.md`](./PLAN.md). Next up: the sandboxed AI classifier and npm publish.
+See [`PLAN.md`](./PLAN.md). Next up: npm publish (`npx malskanner <repo>`).
 
 ## Contributing
 

@@ -68,7 +68,9 @@ export function renderHuman(r: ScanResult): string {
   ];
 
   if (r.findings.length === 0) {
-    lines.push(chalk.green("  ✔ No hidden-payload findings."), "");
+    lines.push(chalk.green("  ✔ No hidden-payload findings."));
+    for (const note of r.notes ?? []) lines.push(chalk.dim(`  · ${note}`));
+    lines.push("");
     return lines.join("\n");
   }
 
@@ -84,6 +86,8 @@ export function renderHuman(r: ScanResult): string {
   }
 
   const code = r.verdict === "REFUSE" ? 2 : r.verdict === "WARN" ? 1 : 0;
-  lines.push(`  ${chalk.bold(String(r.findings.length))} finding(s) · exit code ${code}`, "");
+  lines.push(`  ${chalk.bold(String(r.findings.length))} finding(s) · exit code ${code}`);
+  for (const note of r.notes ?? []) lines.push(chalk.dim(`  · ${note}`));
+  lines.push("");
   return lines.join("\n");
 }

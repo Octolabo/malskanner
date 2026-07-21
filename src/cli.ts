@@ -12,8 +12,9 @@ program
   .argument("<path>", "path to a repo directory or a single file to scan")
   .option("--json", "emit machine-readable JSON instead of the human report")
   .option("--sarif", "emit SARIF 2.1.0 (for GitHub code scanning)")
-  .action(async (target: string, opts: { json?: boolean; sarif?: boolean }) => {
-    const result = await scanRepo(target);
+  .option("--ai", "also run the optional AI classifier (needs ANTHROPIC_API_KEY)")
+  .action(async (target: string, opts: { json?: boolean; sarif?: boolean; ai?: boolean }) => {
+    const result = await scanRepo(target, { ai: opts.ai });
     const out = opts.sarif ? renderSarif(result) : opts.json ? renderJson(result) : renderHuman(result);
     process.stdout.write(out + "\n");
     // Exit code doubles as a CI/agent gate: 2 = REFUSE, 1 = WARN, 0 = OK.
