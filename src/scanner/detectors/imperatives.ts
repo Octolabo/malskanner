@@ -1,5 +1,5 @@
 import { Detector, Finding } from "../../types.js";
-import { posOf, truncate } from "../util.js";
+import { inFencedBlock, inInlineCode, posOf, truncate } from "../util.js";
 
 /**
  * Tier-2 (deterministic, deliberately narrow): flags canonical prompt-injection
@@ -55,17 +55,9 @@ function isReferenced(text: string, idx: number): boolean {
   // Immediately preceded by a quote or backtick.
   if (idx > 0 && QUOTE.has(text[idx - 1]!)) return true;
 
-  const lineStart = text.lastIndexOf("\n", idx - 1) + 1;
-  const before = text.slice(lineStart, idx);
-
-  // Inside an inline-code span: odd number of backticks earlier on the line.
-  if (((before.match(/`/g)?.length ?? 0) % 2) === 1) return true;
+  if (inInlineCode(text, idx) || inFencedBlock(text, idx)) return true;
 
   // Inside an unclosed quote earlier on the same line.
-  if (/["'“‘][^"'\n”’]*$/.test(before)) return true;
-
-  // Inside a fenced code block: odd number of ``` fences before this line.
-  if ((((text.slice(0, lineStart).match(/^```/gm)?.length) ?? 0) % 2) === 1) return true;
-
-  return false;
+  const lineStart = text.lastIndexOf("\n", idx - 1) + 1;
+  return /["'“‘][^"'\n”’]*$/.test(text.slice(lineStart, idx));
 }

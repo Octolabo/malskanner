@@ -1,6 +1,6 @@
 import { Detector, Finding } from "../../types.js";
 import { matchSuspicious } from "../patterns.js";
-import { posOf, truncate } from "../util.js";
+import { inFencedBlock, inInlineCode, posOf, truncate } from "../util.js";
 
 /**
  * Tier-1 detector for text that is present in the file but hidden from a human:
@@ -11,6 +11,10 @@ import { posOf, truncate } from "../util.js";
  * comment when its content matches a suspicious pattern — that keeps this
  * near-zero false positive. Concealing CSS in a doc is itself the red flag, so
  * that is flagged regardless of content.
+ *
+ * Neither rule fires inside fenced/inline code: code blocks render verbatim, so
+ * nothing in them is hidden from a human — docs legitimately *show* markup like
+ * `display: none` there, and concealment (this detector's subject) is impossible.
  */
 
 const HTML_COMMENT = /<!--([\s\S]*?)-->/g;
@@ -23,6 +27,8 @@ export const hiddenDetector: Detector = {
     const findings: Finding[] = [];
 
     for (const m of text.matchAll(HTML_COMMENT)) {
+      const idx = m.index ?? 0;
+      if (inFencedBlock(text, idx) || inInlineCode(text, idx)) continue;
       const body = (m[1] ?? "").trim();
       const sus = matchSuspicious(body);
       if (sus.length === 0) continue;
@@ -41,7 +47,9 @@ export const hiddenDetector: Detector = {
     }
 
     for (const m of text.matchAll(HIDDEN_CSS)) {
-      const { line, column } = posOf(text, m.index ?? 0);
+      const idx = m.index ?? 0;
+      if (inFencedBlock(text, idx) || inInlineCode(text, idx)) continue;
+      const { line, column } = posOf(text, idx);
       findings.push({
         ruleId: "hidden-css-text",
         severity: "high",
