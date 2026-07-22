@@ -117,3 +117,14 @@ test("scan: poisoned fixture => REFUSE, clean fixture => OK", async () => {
   assert.equal(good.verdict, "OK");
   assert.equal(good.findings.length, 0);
 });
+
+test("walk: agent rule files (.cursorrules, .cursor/rules/*.mdc) are scanned", async () => {
+  const root = path.resolve(here, "fixtures");
+  const bad = await scanRepo(path.join(root, "poisoned"));
+  const files = new Set(bad.findings.map((f) => f.file));
+  assert.ok(files.has(".cursorrules"), "expected a finding in .cursorrules");
+  assert.ok(
+    files.has(path.join(".cursor", "rules", "conventions.mdc")),
+    "expected a finding in .cursor/rules/conventions.mdc",
+  );
+});
