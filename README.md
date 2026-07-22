@@ -6,7 +6,7 @@
 [![npm](https://img.shields.io/npm/v/malskanner.svg)](https://www.npmjs.com/package/malskanner)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![node](https://img.shields.io/badge/node-%E2%89%A520-brightgreen.svg)](./package.json)
-[![false positives](https://img.shields.io/badge/false%20positives-0%20%2F%203%2C463%20files-success.svg)](#precision-0-false-positives-across-3463-files)
+[![false positives](https://img.shields.io/badge/false%20positives-0%20%2F%205%2C620%20files-success.svg)](#precision-0-false-positives-across-5620-files)
 [![MCP](https://img.shields.io/badge/MCP-ready-8A2BE2.svg)](#use-it-as-an-mcp-server)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
 
@@ -159,14 +159,17 @@ Fail a build (or a Dependabot/agent PR) that introduces a hidden payload:
     fail-on: WARN   # REFUSE | WARN
 ```
 
-## Precision: 0 false positives across 3,463 files
+## Precision: 0 false positives across 5,620 files
 
 A scanner nobody trusts is dead weight, so precision is the priority. `malskanner`
-was run against 13 widely-used repositories — Vue core, FastAPI, Prettier, Tailwind
-CSS, Express, Axios, Flask, Zod, Hono, SWR, and more — a total of **3,463
+was run against 13 widely-used repositories — React, Playwright, shadcn/ui, Vue
+core, Tailwind CSS, Express, Fastify, Axios, and more — a total of **5,620
 documentation files**, with **zero false positives**, while still flagging every
-payload in the test fixtures. Detectors that could misfire on legitimate content
-(zero-width characters in emoji/CJK/hyphenation, homoglyphs in multilingual text)
+payload in the test fixtures. The sweep deliberately includes worst-case inputs:
+OWASP's LLM Top-10 corpus (630 files that discuss prompt injection all day) and
+awesome-cursorrules (270 real-world agent rule files). Detectors that could
+misfire on legitimate content (zero-width characters in emoji/CJK/hyphenation,
+homoglyphs in multilingual text, injection phrases quoted in security docs)
 are scoped to high-signal contexts only.
 
 ## Suppressing intentional examples

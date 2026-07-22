@@ -27,6 +27,7 @@ export const imperativesDetector: Detector = {
     for (const m of text.matchAll(INJECTION)) {
       const idx = m.index ?? 0;
       if (isReferenced(text, idx)) continue; // a mention (quoted/code), not a live command
+      if (isDescribed(text, idx)) continue; // third-person description of an attack, not a command
       const ctx = text.slice(Math.max(0, idx - 24), idx + 96);
       const { line, column } = posOf(text, idx);
       findings.push({
@@ -60,4 +61,35 @@ function isReferenced(text: string, idx: number): boolean {
   // Inside an unclosed quote earlier on the same line.
   const lineStart = text.lastIndexOf("\n", idx - 1) + 1;
   return /["'“‘][^"'\n”’]*$/.test(text.slice(lineStart, idx));
+}
+
+/**
+ * True when the match *describes* an attack on a model rather than issuing one:
+ * it follows a third-person AI subject ("...make the model ignore...", "the LLM
+ * will disregard..."), an example marker ("e.g., ChatGPT:ignore..."), or sits in
+ * markdown link text (a paper/article title). A live injection commands *you* —
+ * second-person phrasings ("You will disregard...") still flag, because no AI
+ * noun precedes the verb.
+ */
+const AI_NOUN = "(?:model|llm|ai|agent|assistant|chatbot|system)s?";
+const DESCRIBED = new RegExp(
+  "(?:" +
+    // "makes/tricks/gets the model (to) <verb> ..."
+    "\\b(?:make|makes|making|made|cause[sd]?|causing|force[sd]?|forcing|gets?|getting|got|instruct(?:s|ed)?|instructing|tell[s]?|telling|told|convince[sd]?|convincing|trick(?:s|ed)?|tricking)\\s+(?:the\\s+|an?\\s+)?" + AI_NOUN + "\\s+(?:to\\s+)?" +
+    // "the model will/can/might <verb> ..."
+    "|\\b" + AI_NOUN + "\\s+(?:will|would|can|could|may|might|should|must|to|then)\\s+" +
+    // an example marker shortly before the match
+    "|\\be\\.g\\.?[,:]?[^\\n]{0,30}" +
+  ")$",
+  "i",
+);
+
+function isDescribed(text: string, idx: number): boolean {
+  const lineStart = text.lastIndexOf("\n", idx - 1) + 1;
+  if (DESCRIBED.test(text.slice(Math.max(lineStart, idx - 80), idx))) return true;
+
+  // Markdown link text: an unclosed "[" earlier on the line is a title, not a command.
+  const line = text.slice(lineStart, idx);
+  const open = line.lastIndexOf("[");
+  return open !== -1 && !line.includes("]", open);
 }
